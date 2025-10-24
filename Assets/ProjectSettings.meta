@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+<<<<<<<< HEAD:Assets/ProjectSettings.meta
+guid: a2f92868163d83542b693f47f4fb5f3b
+folderAsset: yes
+========
+guid: 228485e2663c34c8483e7af4b9eed20a
+folderAsset: yes
+timeCreated: 1582145262
+licenseType: Pro
+>>>>>>>> upstream/main:Assets/GooglePlayPlugins/com.google.play.review/Samples.meta
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

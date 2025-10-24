@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+<<<<<<<< HEAD:Assets/_Main/Materials/Particles/fx_Star_l_blurry_white.mat.meta
+guid: b5c0cd98d702fd3409d51b145fbc05ef
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+========
+guid: 1f5294008f445d24db4de3940b3302e5
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+>>>>>>>> upstream/main:Assets/Settings/Build Profiles/DebugWindows.asset.meta
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

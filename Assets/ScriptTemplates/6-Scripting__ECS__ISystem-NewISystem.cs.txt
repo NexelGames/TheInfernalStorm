@@ -1,0 +1,15 @@
+using Unity.Entities;
+
+namespace Game {
+    //[BurstCompile]
+    public struct #SCRIPTNAME# : ISystem {
+        public void OnCreate(ref SystemState state) { }
+	#NOTRIM#
+        public void OnDestroy(ref SystemState state) { }
+	#NOTRIM#
+		//[BurstCompile]
+        public void OnUpdate(ref SystemState state) { 
+			#NOTRIM#
+		}
+    }
+}

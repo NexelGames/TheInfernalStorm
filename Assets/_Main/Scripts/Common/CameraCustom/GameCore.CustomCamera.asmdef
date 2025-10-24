@@ -1,0 +1,19 @@
+{
+    "name": "GameCore.CustomCamera",
+    "rootNamespace": "",
+    "references": [
+        "GUID:6246eb4f60dcc1d469f29c502dfad24d",
+        "GUID:88be65f96b86746888c927a5c8ff3534",
+        "GUID:4307f53044263cf4b835bd812fc161a4",
+        "GUID:80ecb87cae9c44d19824e70ea7229748"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

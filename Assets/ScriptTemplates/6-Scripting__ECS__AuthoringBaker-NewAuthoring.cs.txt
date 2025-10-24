@@ -1,0 +1,14 @@
+using Unity.Entities;
+using UnityEngine;
+
+namespace Game {
+    public class #SCRIPTNAME# : MonoBehaviour {
+		// authoring fields here	
+
+		private class #SCRIPTNAME#Baker : Baker<#SCRIPTNAME#> {
+			public override void Bake(#SCRIPTNAME# authoring) {
+				// apply authoring fields to entity
+			}
+		}
+    }
+}

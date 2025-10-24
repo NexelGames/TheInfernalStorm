@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+<<<<<<<< HEAD:Assets/_Main/Scripts/UIParticleSystem.cs.meta
+guid: c1760e558bb33aa4b8ec5363fa833ca5
+========
+guid: e4beca40a4df74e7787b464769f15620
+>>>>>>>> upstream/main:Assets/VContainer/Editor/ScriptTemplateModifier.cs.meta
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

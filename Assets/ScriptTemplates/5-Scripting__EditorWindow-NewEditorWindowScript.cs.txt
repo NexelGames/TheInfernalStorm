@@ -1,0 +1,17 @@
+﻿using UnityEditor;
+using UnityEngine;
+
+namespace Game {
+    public class #SCRIPTNAME# : EditorWindow {
+        [MenuItem("Custom/#SCRIPTNAME#")]
+		private static void CreateWindow() {
+			// Get existing open window or if none, make a new one:
+			GetWindow<#SCRIPTNAME#>("#SCRIPTNAME#");
+		}
+
+		// Draw the content of window.
+		private void OnGUI() {
+		
+		}
+    }
+}

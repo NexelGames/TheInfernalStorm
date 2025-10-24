@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+<<<<<<<< HEAD:Assets/_Main/Materials/Particles/fire_soft_blank_ADD.mat.meta
+guid: 5c616d8b68920c343adc0fceb7bc4d2a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+========
+guid: ddfec1c843cdcc548a4174e7d9f3f7df
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+>>>>>>>> upstream/main:Assets/_Main/Configs/MainCameraBlends.asset.meta
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
