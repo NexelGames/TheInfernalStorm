@@ -10,8 +10,8 @@ public class UndergroundEnemy : MonoBehaviour {
     private State state = State.Rising;
 
     [Header("References")]
-    [SerializeField] private Transform model;                 // дочерний объект-модель (обязательно)
-    [SerializeField] private NavMeshAgent agent;              // опционально
+    [SerializeField] private Transform model;                 // Дочерний объект с моделью (Mesh/Animator)
+    [SerializeField] private NavMeshAgent agent;              // Необязателен
 
     [Header("Rise")]
     [SerializeField] private float riseDuration = 1.0f;
@@ -22,40 +22,87 @@ public class UndergroundEnemy : MonoBehaviour {
     [SerializeField] private float stoppingDistance = 1.2f;
 
     [Header("Face settings")]
-    [SerializeField] private bool faceOnlyYaw = true;                 // крутиться только по Y
-    [SerializeField] private Vector3 rotationOffsetEuler = Vector3.zero; // сдвиг, если «перед» модели не по +Z
-    [SerializeField] private float faceRotateSpeed = 0f;              // 0 = мгновенно, >0 = град/сек
+    [Tooltip("Если true — вращение только по Y (крутимся в плане). Если false — полный 3D-взгляд.")]
+    [SerializeField] private bool faceOnlyYaw = true;
 
-    private Transform target;
+    [Tooltip("Смещение ориентации модели, если её «перед» не совпадает с мировым +Z.")]
+    [SerializeField] private Vector3 rotationOffsetEuler = Vector3.zero;
+
+    [Tooltip("Скорость поворота модели в град/сек. 0 = мгновенно.")]
+    [SerializeField] private float faceRotateSpeed = 0f;
+
+    [Header("Facing clamp (опционально)")]
+    [Tooltip("Ограничивать максимальный угол отклонения взгляда от текущего вперёд?")]
+    [SerializeField] private bool limitFacingAngle = false;
+
+    [Tooltip("Макс. угол (в градусах). Для faceOnlyYaw — по горизонту, иначе — в 3D.")]
+    [SerializeField] private float maxFacingAngle = 90f;
+
+    [Header("Separation (избежание захода друг в друга)")]
+    [Tooltip("Слой, на котором находятся другие враги")]
+    [SerializeField] private LayerMask enemyLayer = ~0;
+
+    [Tooltip("Радиус, в пределах которого учитываем других врагов")]
+    [SerializeField] private float separationRadius = 0.8f;
+
+    [Tooltip("Сила отталкивания (чем больше, тем агрессивнее расходятся)")]
+    [SerializeField] private float separationForce = 4f;
+
+    [Tooltip("Максимальное отталкивание за кадр (в метрах), чтобы избежать рывков")]
+    [SerializeField] private float maxSeparationStep = 0.2f;
+
+    [Tooltip("Игнорировать очень слабые толчки (стабильность)")]
+    [SerializeField] private float separationEpsilon = 0.001f;
+
+    [Tooltip("Включить separation даже при NavMeshAgent")]
+    [SerializeField] private bool separationWithAgent = true;
+
+    // --- Targets ---
+    private Transform followTarget;   // На кого бежать (обычно игрок)
+    private Transform faceTarget;     // На кого смотреть (обычно камера)
     private float groundY;
 
-    public void Initialize(Transform player, float groundHeight) {
-        target = player;
+    // буфер без аллокаций
+    private static readonly Collider[] _overlapBuffer = new Collider[32];
+
+    /// <summary>
+    /// Инициализация врага.
+    /// </summary>
+    public void Initialize(Transform player, float groundHeight, Transform cameraTransform = null) {
+        followTarget = player;
+        faceTarget = cameraTransform != null ? cameraTransform : (Camera.main != null ? Camera.main.transform : null);
         groundY = groundHeight;
     }
+
+    public void SetFaceCamera(Transform cameraTransform) => faceTarget = cameraTransform;
 
     private void Awake() {
         if (agent == null) agent = GetComponent<NavMeshAgent>();
         if (agent != null) {
-            agent.enabled = false;
-            agent.updateRotation = false; // повороты делаем сами на model
-            agent.angularSpeed = 0f;      // дополнительная защита от автоповорота
+            agent.enabled = false;          // Включим после выхода на поверхность
+            agent.updateRotation = false;   // Повороты делаем сами, на model
+            agent.angularSpeed = 0f;        // Доп. защита от автоповорота
+
+            // Немного повысим качество избегания и зададим радиус
+            agent.obstacleAvoidanceType = ObstacleAvoidanceType.HighQualityObstacleAvoidance;
+            agent.radius = Mathf.Max(agent.radius, separationRadius * 0.5f);
+            // Разные приоритеты уменьшают «застревание»
+            agent.avoidancePriority = UnityEngine.Random.Range(20, 80);
         }
     }
 
-    private void OnEnable() {
-        StartCoroutine(Rise());
-    }
+    private void OnEnable() => StartCoroutine(RiseRoutine());
 
-    private IEnumerator Rise() {
+    private IEnumerator RiseRoutine() {
         state = State.Rising;
 
         Vector3 start = transform.position;
         Vector3 end = new Vector3(start.x, groundY, start.z);
 
         float t = 0f;
+        float safeDur = Mathf.Max(0.01f, riseDuration);
         while (t < 1f) {
-            t += Time.deltaTime / Mathf.Max(0.01f, riseDuration);
+            t += Time.deltaTime / safeDur;
             float k = riseCurve.Evaluate(t);
             transform.position = Vector3.LerpUnclamped(start, end, k);
             yield return null;
@@ -71,45 +118,138 @@ public class UndergroundEnemy : MonoBehaviour {
     }
 
     private void Update() {
-        if (state == State.Dead || target == null) return;
+        if (state == State.Dead) return;
 
-        // движение родителя
-        if (state == State.Following) {
+        // Движение родителя (позиция)
+        if (state == State.Following && followTarget != null) {
             if (agent != null && agent.enabled && agent.isOnNavMesh) {
-                agent.destination = target.position;
+                agent.destination = followTarget.position;
+
+                // Доп. separation поверх агента при желании
+                if (separationWithAgent)
+                    ApplySeparation();
             }
             else {
-                Vector3 to = target.position - transform.position;
+                Vector3 to = followTarget.position - transform.position;
                 to.y = 0f;
                 float dist = to.magnitude;
                 if (dist > stoppingDistance) {
                     Vector3 dir = to / Mathf.Max(dist, 0.0001f);
                     transform.position += dir * moveSpeed * Time.deltaTime;
                 }
+
+                // Для простого перемещения separation обязателен
+                ApplySeparation();
             }
         }
+
+        // Если цели взгляда нет — попробуем подцепить основную камеру
+        if (faceTarget == null && Camera.main != null)
+            faceTarget = Camera.main.transform;
     }
 
-    // ВАЖНО: поворачиваем модель в LateUpdate, чтобы перебить анимации/другие скрипты
-    private void LateUpdate() {
-        FaceTargetModel();
-    }
+    private void LateUpdate() => FaceTargetModel();
 
     private void FaceTargetModel() {
-        if (model == null || target == null) return;
+        if (model == null || faceTarget == null) return;
 
-        Vector3 dir = target.position - model.position;
-        if (faceOnlyYaw) dir.y = 0f;
-        if (dir.sqrMagnitude < 1e-6f) return;
+        Vector3 dir = faceTarget.position - model.position;
 
-        Quaternion targetRot = Quaternion.LookRotation(dir.normalized, Vector3.up)
-                             * Quaternion.Euler(rotationOffsetEuler);
+        if (faceOnlyYaw) {
+            dir.y = 0f;
+            if (dir.sqrMagnitude < 1e-6f) return;
 
-        if (faceRotateSpeed > 0f) {
-            model.rotation = Quaternion.RotateTowards(model.rotation, targetRot, faceRotateSpeed * Time.deltaTime);
+            if (limitFacingAngle) {
+                Vector3 fwd = model.forward; fwd.y = 0f;
+                if (fwd.sqrMagnitude > 1e-6f) {
+                    fwd.Normalize();
+                    Vector3 dirN = dir.normalized;
+                    float angle = Vector3.Angle(fwd, dirN);
+                    if (angle > maxFacingAngle) {
+                        float t = maxFacingAngle / Mathf.Max(angle, 0.0001f);
+                        dir = Vector3.Slerp(fwd, dirN, t);
+                    }
+                }
+            }
+
+            dir.Normalize();
         }
         else {
-            model.rotation = targetRot; // мгновенный поворот
+            if (dir.sqrMagnitude < 1e-6f) return;
+
+            if (limitFacingAngle) {
+                Vector3 fwd = model.forward;
+                if (fwd.sqrMagnitude > 1e-6f) {
+                    fwd.Normalize();
+                    Vector3 dirN = dir.normalized;
+                    float angle = Vector3.Angle(fwd, dirN);
+                    if (angle > maxFacingAngle) {
+                        float t = maxFacingAngle / Mathf.Max(angle, 0.0001f);
+                        dir = Vector3.Slerp(fwd, dirN, t);
+                    }
+                }
+            }
+
+            dir.Normalize();
+        }
+
+        Quaternion targetRot = Quaternion.LookRotation(dir, Vector3.up) * Quaternion.Euler(rotationOffsetEuler);
+
+        if (faceRotateSpeed > 0f)
+            model.rotation = Quaternion.RotateTowards(model.rotation, targetRot, faceRotateSpeed * Time.deltaTime);
+        else
+            model.rotation = targetRot;
+    }
+
+    /// <summary>
+    /// Простейший separation: отталкиваемся от ближайших врагов в радиусе.
+    /// Работает в плоскости XZ, без вертикальных толчков.
+    /// </summary>
+    private void ApplySeparation() {
+        if (separationRadius <= 0f || separationForce <= 0f) return;
+
+        Vector3 pos = transform.position;
+        int count = Physics.OverlapSphereNonAlloc(pos, separationRadius, _overlapBuffer, enemyLayer, QueryTriggerInteraction.Ignore);
+
+        if (count <= 0) return;
+
+        Vector3 push = Vector3.zero;
+        for (int i = 0; i < count; i++) {
+            Collider col = _overlapBuffer[i];
+            if (col == null) continue;
+
+            // игнорируем себя
+            if (col.attachedRigidbody != null && col.attachedRigidbody.transform == transform) continue;
+            if (col.transform == transform || col.transform.IsChildOf(transform) || transform.IsChildOf(col.transform)) continue;
+
+            // игнорируем, если это не враг
+            if (!col.TryGetComponent<UndergroundEnemy>(out var other)) continue;
+
+            Vector3 delta = pos - col.transform.position;
+            delta.y = 0f;
+            float dist = delta.magnitude;
+            if (dist < 1e-4f) continue;
+
+            // Чем ближе — тем сильнее толчок (обратная пропорция)
+            float strength = Mathf.Clamp01((separationRadius - dist) / separationRadius);
+            Vector3 dir = delta / dist;
+            push += dir * strength;
+        }
+
+        if (push.sqrMagnitude < separationEpsilon * separationEpsilon) return;
+
+        // Нормируем по силе и времени, ограничиваем шаг
+        Vector3 step = push.normalized * separationForce * Time.deltaTime;
+        if (step.magnitude > maxSeparationStep)
+            step = step.normalized * maxSeparationStep;
+
+        // Если агент активен — слегка подвинем destination (чтобы не спорить с навмешем)
+        if (agent != null && agent.enabled && agent.isOnNavMesh) {
+            // Сдвигаем текущую позицию немного вручную — агент это переварит.
+            transform.position += new Vector3(step.x, 0f, step.z);
+        }
+        else {
+            transform.position += new Vector3(step.x, 0f, step.z);
         }
     }
 
@@ -119,4 +259,13 @@ public class UndergroundEnemy : MonoBehaviour {
         OnDied?.Invoke(this);
         Destroy(gameObject);
     }
+
+#if UNITY_EDITOR
+    private void OnDrawGizmosSelected() {
+        if (separationRadius > 0f) {
+            Gizmos.color = new Color(1f, 0.6f, 0f, 0.35f);
+            Gizmos.DrawWireSphere(transform.position, separationRadius);
+        }
+    }
+#endif
 }

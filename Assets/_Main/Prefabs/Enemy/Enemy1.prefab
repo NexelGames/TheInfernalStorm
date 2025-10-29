@@ -80,6 +80,16 @@ MonoBehaviour:
   faceOnlyYaw: 1
   rotationOffsetEuler: {x: 0, y: 0, z: 0}
   faceRotateSpeed: 0
+  limitFacingAngle: 0
+  maxFacingAngle: 90
+  enemyLayer:
+    serializedVersion: 2
+    m_Bits: 64
+  separationRadius: 1
+  separationForce: 4
+  maxSeparationStep: 0.2
+  separationEpsilon: 0.001
+  separationWithAgent: 1
 --- !u!195 &8916844764872580048
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -89,7 +99,7 @@ NavMeshAgent:
   m_GameObject: {fileID: 4829534152986919835}
   m_Enabled: 1
   m_AgentTypeID: 0
-  m_Radius: 0.5
+  m_Radius: 0.75
   m_Speed: 3.5
   m_Acceleration: 8
   avoidancePriority: 50
@@ -139,6 +149,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   damagePerHit: 10
   attackInterval: 1
+  playerTag: Player
 --- !u!1 &5551897751948420214
 GameObject:
   m_ObjectHideFlags: 0
